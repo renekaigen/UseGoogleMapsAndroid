@@ -46,7 +46,7 @@ public class MapsActivity extends FragmentActivity implements View.OnClickListen
     private double longitud;
     private double latitud;
     private EditText etBusqueda;
-    private Button btnBuscar, btnRestaurantesCercanos;
+    private Button btnBuscar, btnRestaurantesCercanos,btnCercanoClave;
     private Location localizacionAutom;
 
     @Override
@@ -56,11 +56,13 @@ public class MapsActivity extends FragmentActivity implements View.OnClickListen
 
         etBusqueda = (EditText) findViewById(R.id.etBusqueda);
         btnBuscar= (Button) findViewById(R.id.btnBuscar);
+        btnCercanoClave= (Button) findViewById(R.id.btnCercanoClave);
         btnRestaurantesCercanos= (Button) findViewById(R.id.btnRestaurantesCercanos);
 
         setUpMapIfNeeded();
         btnBuscar.setOnClickListener(this);
         btnRestaurantesCercanos.setOnClickListener(this);
+        btnCercanoClave.setOnClickListener(this);
     }
 
     @Override
@@ -134,13 +136,14 @@ public class MapsActivity extends FragmentActivity implements View.OnClickListen
        //tec madero 22.2519514,-97.8458526
      //53733, -97.848258
 
-        String waypoints = "origin=22.252734,-97.8487428&destination=22.2519514,-97.8458526&key="+apiKeyMapsDirections+"&waypoints=optimize:true|"
+      /*  String waypoints = "origin=22.252734,-97.8487428&destination=22.2519514,-97.8458526&key="+apiKeyMapsDirections+"&waypoints=optimize:true|"
                 + LOWER_MANHATTAN.latitude + "," + LOWER_MANHATTAN.longitude
                 + "|" + "|" + BROOKLYN_BRIDGE.latitude + ","
                 + BROOKLYN_BRIDGE.longitude + "|" + WALL_STREET.latitude + ","
                 + WALL_STREET.longitude;
+                */
 
-        waypoints = "origin=22.2518269,-97.834871&destination=22.253733,-97.848258&key="+apiKeyMapsDirections+"";
+        String waypoints = "origin=22.2518269,-97.834871&destination=22.253733,-97.848258&key="+apiKeyMapsDirections+"";
 
         String sensor = "sensor=false";
         String params = waypoints + "&" + sensor;
@@ -198,6 +201,15 @@ public class MapsActivity extends FragmentActivity implements View.OnClickListen
                 }
 
             break;
+
+            case R.id.btnCercanoClave:
+                String buscarClave=etBusqueda.getText().toString().trim();
+                buscarClave=buscarClave.replaceAll(" ", "%20");
+                    cercanoClave(latitud, longitud, buscarClave);
+                Log.d("BUSCAR", "BUSCANDO "+buscarClave);
+                break;
+
+
         }
 
     }
@@ -509,6 +521,15 @@ public class MapsActivity extends FragmentActivity implements View.OnClickListen
     public void restaurantesCercanos(double latitud,double longitud){
        /*Opcion para buscar restaurantes cercanos a donde te ubicas conforme la latitud y longitud*/
         Uri gmmIntentUri = Uri.parse("geo:"+latitud+","+longitud+"?q=restaurants");
+        Intent mapIntent = new Intent(Intent.ACTION_VIEW, gmmIntentUri);
+        mapIntent.setPackage("com.google.android.apps.maps");
+        startActivity(mapIntent);
+    }
+
+    public void cercanoClave(double latitud,double longitud, String busqueda){
+        //probar con palabra escuelas
+       /*Opcion para buscar lo que sea (String busqueda) cercanos a donde te ubicas conforme la latitud y longitud*/
+        Uri gmmIntentUri = Uri.parse("geo:"+latitud+","+longitud+"?q="+busqueda+"");
         Intent mapIntent = new Intent(Intent.ACTION_VIEW, gmmIntentUri);
         mapIntent.setPackage("com.google.android.apps.maps");
         startActivity(mapIntent);
