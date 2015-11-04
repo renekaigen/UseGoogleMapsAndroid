@@ -1,7 +1,9 @@
 package paleta.aplicaciones.usargooglemaps;
 
+import android.content.Intent;
 import android.graphics.Color;
 import android.location.Location;
+import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.support.v4.app.FragmentActivity;
@@ -44,8 +46,8 @@ public class MapsActivity extends FragmentActivity implements View.OnClickListen
     private double longitud;
     private double latitud;
     private EditText etBusqueda;
-    private Button btnBuscar;
-
+    private Button btnBuscar, btnRestaurantesCercanos;
+    private Location localizacionAutom;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -54,9 +56,11 @@ public class MapsActivity extends FragmentActivity implements View.OnClickListen
 
         etBusqueda = (EditText) findViewById(R.id.etBusqueda);
         btnBuscar= (Button) findViewById(R.id.btnBuscar);
+        btnRestaurantesCercanos= (Button) findViewById(R.id.btnRestaurantesCercanos);
 
         setUpMapIfNeeded();
         btnBuscar.setOnClickListener(this);
+        btnRestaurantesCercanos.setOnClickListener(this);
     }
 
     @Override
@@ -73,6 +77,7 @@ public class MapsActivity extends FragmentActivity implements View.OnClickListen
                 ubicarEnPosicion(location);
                 latitud=location.getLatitude();
                 longitud=location.getLongitude();
+                localizacionAutom= location;
                 Log.d("UBICACION", "latitus "+ latitud +" longitud " + longitud);
             }
         };
@@ -104,6 +109,8 @@ public class MapsActivity extends FragmentActivity implements View.OnClickListen
                 13));
                 */
         addMarkers();
+
+
 
 
 
@@ -182,6 +189,15 @@ public class MapsActivity extends FragmentActivity implements View.OnClickListen
                 ReadTask downloadTask = new ReadTask();
                 downloadTask.execute(opciones);
                 break;
+
+            case R.id.btnRestaurantesCercanos:
+
+                if(localizacionAutom!=null){
+                    //si tenemos ubicacion entonces buscar resturantes cercanos
+                    restaurantesCercanos(latitud,longitud);
+                }
+
+            break;
         }
 
     }
@@ -490,4 +506,11 @@ public class MapsActivity extends FragmentActivity implements View.OnClickListen
         }
     }
 
+    public void restaurantesCercanos(double latitud,double longitud){
+       /*Opcion para buscar restaurantes cercanos a donde te ubicas conforme la latitud y longitud*/
+        Uri gmmIntentUri = Uri.parse("geo:"+latitud+","+longitud+"?q=restaurants");
+        Intent mapIntent = new Intent(Intent.ACTION_VIEW, gmmIntentUri);
+        mapIntent.setPackage("com.google.android.apps.maps");
+        startActivity(mapIntent);
+    }
 }
