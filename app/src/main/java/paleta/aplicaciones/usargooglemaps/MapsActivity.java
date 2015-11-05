@@ -14,6 +14,8 @@ import android.widget.Button;
 import android.widget.EditText;
 import android.widget.Toast;
 
+import com.google.android.gms.common.ConnectionResult;
+import com.google.android.gms.common.api.GoogleApiClient;
 import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.SupportMapFragment;
@@ -63,6 +65,8 @@ public class MapsActivity extends FragmentActivity implements View.OnClickListen
         btnBuscar.setOnClickListener(this);
         btnRestaurantesCercanos.setOnClickListener(this);
         btnCercanoClave.setOnClickListener(this);
+
+
     }
 
     @Override
@@ -99,18 +103,23 @@ public class MapsActivity extends FragmentActivity implements View.OnClickListen
 
         String url = getMapsApiDirectionsUrl();
         ArrayList<String> opciones= new ArrayList<String>();
-        opciones.add(url);//1er param la url
-        opciones.add("2");/*
-                1 -singinica que al final del hilo obtendre los datos para el geocode.
-                2- Trazo de Recorrido (origen-destino)
-                */
+        opciones.add(url);
+        opciones.add("2");
         ReadTask downloadTask = new ReadTask();
         downloadTask.execute(opciones);
 
-       /* mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(BROOKLYN_BRIDGE,
-                13));
-                */
+
         addMarkers();
+
+        /*para obtener el place ID seria en el metodo 1 pero es algo complicado con ciertos lugares,
+        seria mejor agregar un autocompletar
+        */
+        ArrayList<String> opciones2= new ArrayList<String>();
+        String urlPlaceID="https://maps.googleapis.com/maps/api/place/details/json?placeid=ChIJwbvo6Sf614UREMa5Heqfrtk&key=AIzaSyB5IFRrtueth7Ycsz1qmRro3gIzMQBJUyw";
+        opciones2.add(urlPlaceID);//1er param la url
+        opciones2.add("3");
+        ReadTask downloadTask2 = new ReadTask();
+        downloadTask2.execute(opciones2);
 
 
 
@@ -180,7 +189,7 @@ public class MapsActivity extends FragmentActivity implements View.OnClickListen
                 //establezco URL para conectar al webservice de  Google Apis Geocode
                 buscarDireccion=buscarDireccion.replaceAll(" ", "%20");
                 String url =
-                        "https://maps.googleapis.com/maps/api/geocode/json?address="+buscarDireccion+"&key=" + apiKeyMapsDirections;
+                        "https://maps.googleapis.com/maps/api/geocode/json?address="+buscarDireccion+"&languague=ES&key=" + apiKeyMapsDirections;
                 //hacer conexion url en segundo plano por medio de AsyncTask
                 Log.d("URL", url);
                 ArrayList<String> opciones= new ArrayList<String>();
@@ -214,6 +223,11 @@ public class MapsActivity extends FragmentActivity implements View.OnClickListen
 
     }
 
+
+
+
+
+    //ASYNC TASK de Lectura de url
     private class ReadTask extends AsyncTask< ArrayList<String>, Void, ArrayList<String>> {
         @Override
         protected ArrayList<String> doInBackground(ArrayList<String>... datos) {
@@ -223,6 +237,7 @@ public class MapsActivity extends FragmentActivity implements View.OnClickListen
                 String url= datos[0].get(0);
                 HttpConnection http = new HttpConnection();
                 String respuesta = http.readUrl(datos[0].get(0));
+                Log.d("URL", ""+url);
                 Log.d("RESPUESTA", ""+respuesta);
                 datos[0].set(0,respuesta); //modifico el 2do elemento del array list con el de la respuesta del readURL
 
@@ -236,15 +251,20 @@ public class MapsActivity extends FragmentActivity implements View.OnClickListen
         protected void onPostExecute(ArrayList<String> result) {
             String respuestaURL=result.get(0);
             super.onPostExecute(result);
-            switch(Integer.parseInt(result.get(1))){
+            int tipoConsulta=Integer.parseInt(result.get(1));
+            switch(tipoConsulta){
                 case 1:
                     //quiero obtener los datos de geocoder (direccion a latitud y longitud para luego establecerlos en el mapa)
                     Log.d("RESPUESTA", ""+respuestaURL);
-                    getJsonResponse(respuestaURL);
+                    getJsonResponse(respuestaURL,tipoConsulta);
                     break;
                 case 2:
                     //trazar ruta de punto origen a destino en mapa.
                     new ParserTask().execute(respuestaURL);
+                    break;
+                case 3:
+                    Log.d("INFORMACION", ""+ respuestaURL);
+                    getJsonResponse(respuestaURL,tipoConsulta );
                     break;
             }
 
@@ -255,18 +275,17 @@ public class MapsActivity extends FragmentActivity implements View.OnClickListen
 
 
 
-    public void getJsonResponse(String result) {
+    public void getJsonResponse(String result,int tipoConsulta) {
         //from 0 = sql, 1 = web
         JSONObject jsonField = null;
         try {
             jsonField = new JSONObject(result); //parseo string foramto json a un objeto JSON
             String jsonResponse=result;
 
-
-
-
-            JSONArray datos = jsonField.getJSONArray("results");
-            Log.d("VALORES","datos son  "+datos);
+            switch(tipoConsulta){
+                case 1:
+                    JSONArray datos = jsonField.getJSONArray("results");
+                    Log.d("VALORES","datos son  "+datos);
             /*Del json que me proporciona google busco el array "results"
             */
                     if (datos != null) {
@@ -306,6 +325,33 @@ public class MapsActivity extends FragmentActivity implements View.OnClickListen
                     }else{
 
                     }
+                    break;
+
+
+                case 3:
+                        ///apartir del place Id
+                    JSONObject resultado= jsonField.getJSONObject("result"); //aqui es result en vez de results
+                    String direccionCompleta=resultado.getString("formatted_address");
+                    String numeroTelefonico=resultado.getString("formatted_phone_number");
+                    String urlIcono=resultado.getString("icon");
+                    String rating=resultado.getString("rating");
+                    String categorias=resultado.getString("types");
+                    String sumatoriaRating=resultado.getString("user_ratings_total");
+                    String urlSitioWeb=resultado.getString("website");
+                    String nombreDelLugar=resultado.getString("name");
+                    Log.d("DIRECCION", ""+direccionCompleta);
+                    Log.d("NUMERO", ""+numeroTelefonico);
+                    Log.d("ICONO", ""+urlIcono);
+                    Log.d("RATING", ""+rating);
+                    Log.d("CATEGORIAS", ""+categorias);
+                    Log.d("SUMATORIA", ""+sumatoriaRating);
+                    Log.d("WEBSITE", ""+urlSitioWeb);
+                    Log.d("NombreLugar", ""+nombreDelLugar);
+                    break;
+            }
+
+
+
             }
         catch (JSONException e1)
         {

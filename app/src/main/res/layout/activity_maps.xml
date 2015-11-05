@@ -33,6 +33,12 @@
             android:hint="Buscar (esto reemplazar por voz)"
             android:text="Insituto Tecnologico de Ciudad Madero"
             />
+
+        <AutoCompleteTextView
+            android:id="@+id/autoCompleteTextView"
+            android:layout_height="wrap_content"
+            android:layout_width="wrap_content"
+            />
     </LinearLayout>
 
     <LinearLayout
