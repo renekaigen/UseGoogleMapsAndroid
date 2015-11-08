@@ -1,5 +1,6 @@
 package paleta.aplicaciones.usargooglemaps;
 
+import android.content.Context;
 import android.content.Intent;
 import android.graphics.Color;
 import android.location.Location;
@@ -10,8 +11,13 @@ import android.support.v4.app.FragmentActivity;
 import android.text.TextUtils;
 import android.util.Log;
 import android.view.View;
+import android.widget.AdapterView;
+import android.widget.ArrayAdapter;
+import android.widget.AutoCompleteTextView;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.Filter;
+import android.widget.Filterable;
 import android.widget.Toast;
 
 import com.google.android.gms.common.ConnectionResult;
@@ -30,12 +36,18 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.io.IOException;
+import java.io.InputStreamReader;
 import java.lang.reflect.Array;
+import java.net.HttpURLConnection;
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.net.URLEncoder;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 
-public class MapsActivity extends FragmentActivity implements View.OnClickListener {
+public class MapsActivity extends FragmentActivity implements View.OnClickListener ,AdapterView.OnItemClickListener {
     String apiKeyMapsDirections="AIzaSyB5IFRrtueth7Ycsz1qmRro3gIzMQBJUyw"; //api key tipo server de tu Google Console
     private GoogleMap mMap; // Might be null if Google Play services APK is not available.
     private Marker myMarker;
@@ -44,19 +56,32 @@ public class MapsActivity extends FragmentActivity implements View.OnClickListen
             -73.998585);
     private static final LatLng BROOKLYN_BRIDGE = new LatLng(40.7057, -73.9964);
     private static final LatLng WALL_STREET = new LatLng(40.7064, -74.0094);
-    final String TAG = "Navegacion";
+
     private double longitud;
     private double latitud;
     private EditText etBusqueda;
     private Button btnBuscar, btnRestaurantesCercanos,btnCercanoClave;
     private Location localizacionAutom;
 
+
+    private static final String TAG = "TAG";
+    private static final String PLACES_API_BASE = "https://maps.googleapis.com/maps/api/place";
+    private static final String TIPO_AUTOCOMPLETADO = "/autocomplete";
+    private static final String FORMATO_ENVIO = "/json";
+
+    private static final String API_KEY = "AIzaSyB5IFRrtueth7Ycsz1qmRro3gIzMQBJUyw"; //tu api key del tipo servidor
+
+    private static ArrayList<String> placesID;
+private AutoCompleteTextView autoCompView;
+    private String placeIDSeleccionado;
+    private boolean seleccionoAutocompletar;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_maps);
 
-        etBusqueda = (EditText) findViewById(R.id.etBusqueda);
+       // etBusqueda = (EditText) findViewById(R.id.etBusqueda);
         btnBuscar= (Button) findViewById(R.id.btnBuscar);
         btnCercanoClave= (Button) findViewById(R.id.btnCercanoClave);
         btnRestaurantesCercanos= (Button) findViewById(R.id.btnRestaurantesCercanos);
@@ -65,6 +90,11 @@ public class MapsActivity extends FragmentActivity implements View.OnClickListen
         btnBuscar.setOnClickListener(this);
         btnRestaurantesCercanos.setOnClickListener(this);
         btnCercanoClave.setOnClickListener(this);
+
+        autoCompView = (AutoCompleteTextView) findViewById(R.id.autoCompleteTextView);
+
+        autoCompView.setAdapter(new AdaptadorAutocompletar(this, R.layout.listado_de_lugares));
+        autoCompView.setOnItemClickListener(this);
 
 
     }
@@ -185,7 +215,8 @@ public class MapsActivity extends FragmentActivity implements View.OnClickListen
     public void onClick(View v) {
         switch (v.getId()) { //obtengo el id de la vista en este caso Button
             case R.id.btnBuscar: //si el ID es igual al de btnBuscar de la clase R entonces
-                String buscarDireccion=etBusqueda.getText().toString().trim();
+               //String buscarDireccion=etBusqueda.getText().toString().trim();
+                String buscarDireccion=autoCompView.getText().toString().trim();
                 //establezco URL para conectar al webservice de  Google Apis Geocode
                 buscarDireccion=buscarDireccion.replaceAll(" ", "%20");
                 String url =
@@ -212,7 +243,8 @@ public class MapsActivity extends FragmentActivity implements View.OnClickListen
             break;
 
             case R.id.btnCercanoClave:
-                String buscarClave=etBusqueda.getText().toString().trim();
+               // String buscarClave=etBusqueda.getText().toString().trim();
+                String buscarClave=autoCompView.getText().toString().trim();
                 buscarClave=buscarClave.replaceAll(" ", "%20");
                     cercanoClave(latitud, longitud, buscarClave);
                 Log.d("BUSCAR", "BUSCANDO "+buscarClave);
@@ -222,7 +254,6 @@ public class MapsActivity extends FragmentActivity implements View.OnClickListen
         }
 
     }
-
 
 
 
@@ -320,6 +351,28 @@ public class MapsActivity extends FragmentActivity implements View.OnClickListen
                             Toast.makeText(getApplicationContext(),"la latitud es " + latitud + "la longitud es "+ longitud, Toast.LENGTH_LONG).show();
                             LatLng localizacion = new LatLng(Double.parseDouble(latitud), Double.parseDouble(longitud)); //convierto de string a Double las latitud y longitud
                             ubicarEnPosicion(localizacion);
+
+
+                            //luego con el placeID obtener toda la informacion del lugar
+                            String placeID="";
+                            if(seleccionoAutocompletar)
+                            {
+                                //si fue por un select de autocompletar mejor usar ese, es mas exacto que el geocode inverso
+                                placeID= placeIDSeleccionado;
+                            }else{
+                                placeID=datos.getJSONObject(0).getString("place_id").toString();
+                            }
+                            Log.d(TAG,"METODO PlaceID "+ placeID);
+                            ArrayList<String> opciones2= new ArrayList<String>();
+                            String urlPlaceID="https://maps.googleapis.com/maps/api/place/details/json?placeid="+placeID+"&key=AIzaSyB5IFRrtueth7Ycsz1qmRro3gIzMQBJUyw";
+                            opciones2.add(urlPlaceID);//1er param la url
+                            opciones2.add("3");
+                            ReadTask downloadTask2 = new ReadTask();
+                            downloadTask2.execute(opciones2);
+                            //terminado el proceso hacerlo de nuevo false el autocompletar asi como el placeID a vacio
+                            seleccionoAutocompletar=false;
+                            placeIDSeleccionado="";
+
                         }
 
                     }else{
@@ -339,7 +392,18 @@ public class MapsActivity extends FragmentActivity implements View.OnClickListen
                     String sumatoriaRating=resultado.getString("user_ratings_total");
                     String urlSitioWeb=resultado.getString("website");
                     String nombreDelLugar=resultado.getString("name");
-                    Log.d("DIRECCION", ""+direccionCompleta);
+
+                    Toast.makeText(getApplicationContext(),"Datos de la ubicacion son \n"+
+                            "DIRECCION "+direccionCompleta +
+                    "NUMERO "+numeroTelefonico +
+                    "ICONO "+urlIcono +
+                    "RATING "+rating +
+                    "CATEGORIAS "+categorias +
+                    "SUMATORIA "+sumatoriaRating +
+                    "WEBSITE "+urlSitioWeb +
+                    "NombreLugar " + nombreDelLugar, Toast.LENGTH_LONG).show();
+
+                    Log.d("DIRECCION", "" + direccionCompleta);
                     Log.d("NUMERO", ""+numeroTelefonico);
                     Log.d("ICONO", ""+urlIcono);
                     Log.d("RATING", ""+rating);
@@ -533,7 +597,8 @@ public class MapsActivity extends FragmentActivity implements View.OnClickListen
             mMap.addMarker(new MarkerOptions()
                     .position(loc)
                     .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_GREEN))
-                    .title("Busqueda exitosa " + etBusqueda.getText().toString()));
+                    .title("Busqueda exitosa " + autoCompView.getText().toString().trim()));
+                   // .title("Busqueda exitosa " + etBusqueda.getText().toString()));
         }
     }
 
@@ -579,5 +644,128 @@ public class MapsActivity extends FragmentActivity implements View.OnClickListen
         Intent mapIntent = new Intent(Intent.ACTION_VIEW, gmmIntentUri);
         mapIntent.setPackage("com.google.android.apps.maps");
         startActivity(mapIntent);
+    }
+
+
+    /* ===  SECCION AUTOCOMPLETE====*/
+    public void onItemClick(AdapterView adapterView, View view, int position, long id) {
+        String str = (String) adapterView.getItemAtPosition(position);
+        Toast.makeText(this, str, Toast.LENGTH_SHORT).show();
+
+        /*como hizo click en algunas de las posibles direcciones entonces
+        obtnego el placeID del lugar selecto para que al dar en el btn buscar ya tengo el placeID correcto
+         */
+        seleccionoAutocompletar=true;
+        placeIDSeleccionado=placesID.get(position).toString();
+
+    }
+    public ArrayList autocompletar(String input) {
+        ArrayList resultList = null;
+
+        seleccionoAutocompletar=false;
+
+        HttpURLConnection conn = null;
+        StringBuilder jsonResults = new StringBuilder();
+        try {
+            StringBuilder sb = new StringBuilder(PLACES_API_BASE + TIPO_AUTOCOMPLETADO + FORMATO_ENVIO);
+            sb.append("?key=" + API_KEY);
+            sb.append("&components=country:mx");
+            sb.append("&input=" + URLEncoder.encode(input, "utf8"));
+
+            URL url = new URL(sb.toString());
+            conn = (HttpURLConnection) url.openConnection();
+            InputStreamReader in = new InputStreamReader(conn.getInputStream());
+            Log.d(TAG,"URL enviada fue "+ url);
+            // Load the results into a StringBuilder
+            int read;
+            char[] buff = new char[1024];
+
+            while ((read = in.read(buff)) != -1) {
+                jsonResults.append(buff, 0, read);
+            }
+        } catch (MalformedURLException e) {
+            Log.e(TAG, "Error processing Places API URL", e);
+            return resultList;
+        } catch (IOException e) {
+            Log.e(TAG, "Error connecting to Places API", e);
+            return resultList;
+        } finally {
+            if (conn != null) {
+                conn.disconnect();
+            }
+        }
+
+        try {
+            // Create a JSON object hierarchy from the results
+            JSONObject jsonObj = new JSONObject(jsonResults.toString());
+            JSONArray predsJsonArray = jsonObj.getJSONArray("predictions");
+
+            //Iniciar mi arraylist de places
+            placesID = new ArrayList<String>();
+
+
+            // Extract the Place descriptions from the results
+            resultList = new ArrayList(predsJsonArray.length());
+            for (int i = 0; i < predsJsonArray.length(); i++) {
+                placesID.add(predsJsonArray.getJSONObject(i).getString("place_id"));//asigno cada valor del place ID
+                System.out.println(predsJsonArray.getJSONObject(i).getString("description"));
+                System.out.println("============================================================");
+                resultList.add(predsJsonArray.getJSONObject(i).getString("description"));
+            }
+        } catch (JSONException e) {
+            Log.e(TAG, "Eror JSON" + e.toString() );
+        }
+
+        return resultList;
+    }
+
+
+    /*clase de autocompletado Adaptador*/
+    class AdaptadorAutocompletar extends ArrayAdapter implements Filterable {
+        private ArrayList resultList;
+
+        public AdaptadorAutocompletar(Context context, int textViewResourceId) {
+            super(context, textViewResourceId);//llamando contructor de clase padre ArrayAdapter
+        }
+
+        @Override
+        public int getCount() {
+            return resultList.size();
+        }
+
+        @Override
+        public String getItem(int index) {
+
+            return resultList.get(index).toString();
+        }
+
+        @Override
+        public Filter getFilter() {
+            Filter filter = new Filter() {
+                @Override
+                protected FilterResults performFiltering(CharSequence constraint) {
+                    FilterResults resultadosDelFiltro = new FilterResults();
+                    if (constraint != null) {
+                        // Regresa los resultado del autocomplete
+                        resultList = autocompletar(constraint.toString());
+
+                        // Asgianr los datos al FilterResults
+                        resultadosDelFiltro.values = resultList;
+                        resultadosDelFiltro.count = resultList.size();
+                    }
+                    return resultadosDelFiltro;
+                }
+
+                @Override
+                protected void publishResults(CharSequence constraint, FilterResults results) {
+                    if (results != null && results.count > 0) {
+                        notifyDataSetChanged();
+                    } else {
+                        notifyDataSetInvalidated();
+                    }
+                }
+            };
+            return filter;
+        }
     }
 }

@@ -25,7 +25,7 @@
         android:layout_height="wrap_content"
         android:orientation="vertical"
         >
-        <EditText
+     <!--   <EditText
             android:id="@+id/etBusqueda"
             android:layout_height="0dp"
             android:layout_width="wrap_content"
@@ -34,10 +34,12 @@
             android:text="Insituto Tecnologico de Ciudad Madero"
             />
 
+            -->
         <AutoCompleteTextView
             android:id="@+id/autoCompleteTextView"
             android:layout_height="wrap_content"
             android:layout_width="wrap_content"
+            android:hint="Por favor escribe lugar a buscar."
             />
     </LinearLayout>
 
