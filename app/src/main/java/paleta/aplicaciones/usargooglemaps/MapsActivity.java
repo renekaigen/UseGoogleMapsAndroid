@@ -383,6 +383,8 @@ private AutoCompleteTextView autoCompView;
 
                 case 3:
                         ///apartir del place Id
+
+                    //en esta parte validar si existe o no el jsonobject para evitar errores
                     JSONObject resultado= jsonField.getJSONObject("result"); //aqui es result en vez de results
                     String direccionCompleta=resultado.getString("formatted_address");
                     String numeroTelefonico=resultado.getString("formatted_phone_number");
